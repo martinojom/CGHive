@@ -1,9 +1,17 @@
-#------------------------------------------------------------------------------------------------
-#
-# CGHive Auto Limb Tool v1 This is the beginning of my maya rigging series
-#
-#------------------------------------------------------------------------------------------------
 
+'''
+------------------------------------------------------------------------------------------------
+
+ CGHive Auto Limb Tool v1 This is the beginning of my maya rigging series
+ Auther Name = Martin Ojom
+ Company Name = CGHive
+
+        NOTE:
+            This AutoLimb tool is a product of CGHive that was written by Martin Ojom
+
+
+------------------------------------------------------------------------------------------------
+'''
 import maya.cmds as cmds
 
 def autoLimbTool():
@@ -134,7 +142,46 @@ def autoLimbTool():
 
     # Add the pole vector to the driver IK handle if ist the rear leg, if its the front add it to the  knee ik handle
     if isRearLeg:
-        cmds.
+        cmds.poleVectorConstraint(kneeControlName, limbName + "_driver_ikHandle", weight=True)
+    else:
+        cmds.poleVectorConstraint(kneeControlName, (limbName + "_knee_ikHandle"), weight=True)
+
+    #---------------------------------------------------------------------------------
+    # Add hock control
+
+    cmds.shadingNode('multiplyDivide', asUtility=True, name=limbName + "_hock_multi")
+
+    cmds.connectAttr(hockControlName + ".translate", limbName + "_hock_multi.input1", force=True)
+
+    cmds.connectAttr(limbName + "_hock_multi.outputZ", limbName + "_knee_control.rotateX", force=True)
+    cmds.connectAttr(limbName + "_hock_multi.outputX", limbName + "_knee_control.rotateZ", force=True)
+
+    cmds.setAttr(limbName + "_hock_multi.input2X", -2.5)
+    cmds.setAttr(limbName + "_hock_multi.input2Z", 2.5)
+
+    #---------------------------------------------------------------------------------
+    # Add the IK and FK blending
+
+    for i in range(limbJoints):
+        getConstrait = cmds.listConnections(jointHierchy[i], type='parentConstraint')[0]
+        getWeights = cmds.parentConstraint(getConstrait, query=True, weightAliasList=True)
+
+        cmds.connectAttr(mainControl + ".FK_IK_Switch", getConstrait + "." + getWeights[0], force=True)
+        cmds.connectAttr(limbName + "_fkik_reverse.outputX", getConstrait + "." + getWeights[1], force=True)
+        # connectAttr -f l_leg_rear_ctrl.FK_IK_Switch l_leg_rear_IK_ctrl.FK_IK_Switch;
+        print(getWeights)
+
+    #---------------------------------------------------------------------------------
+    # Update the hierachy
+
+    # Add a group for the limb
+    cmds.group(em=1, name=limbName + "_grp")
+
+    # Move if to the root position and freeze the transforms
+    cmds.matchTransform(limbName + "_grp", jointRoot)
+    cmds.makeIdentity(limbName + "_grp", apply=True, translate=True, rotate=True, scale=False)
+     
+
 
 
 
