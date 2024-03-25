@@ -132,6 +132,10 @@ def autoLimbTool():
     # Make the paw control driver the ankle joint to maintain orientation
     cmds.orientConstraint(pawControlName, jointHierchy[3] + "_ik", weight=True)
 
+    # Add the pole vector to the driver IK handle if ist the rear leg, if its the front add it to the  knee ik handle
+    if isRearLeg:
+        cmds.
+
 
 
 
