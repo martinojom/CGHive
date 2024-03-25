@@ -45,7 +45,7 @@ def autoLimbTool():
     limbName = whichSide + 'leg_' + limbType
     
     mainControl = limbName + '_ctrl'
-    pawControl = limbName + '_IK_ctrl'
+    pawControlName = limbName + '_IK_ctrl'
     kneeControlName = limbName + "_tibia_ctrl"
     hockControlName = limbName + "_hock_ctrl"
     rootControlName = limbName + "_root_ctrl"
@@ -100,7 +100,47 @@ def autoLimbTool():
     # If its the rear leg, create the ik handle from  the femus to the metacarpus
     if isRearLeg:
         cmds.ikHandle(name=limbName + "_driver_ikHandle", solver="ikRPsolver", startJoint=jointHierchy[0] + "_driver", 
-                        endEffector=jointHierchy[3] + "_driver")
+                        endEffector=jointHierchy[3] + "_driver")   
+    
+    # Next, create the main ik handle from the femur to the metatarsus
+    cmds.ikHandle(name=limbName + "_knee_ikHandle", solver="ikRPsolver", startJoint=jointHierchy[0] + "_ik", 
+                        endEffector=jointHierchy[2] + "_ik")   
+    
+    # Finally, create the main ik handle from the metatarsus to the metacarpus
+    cmds.ikHandle(name=limbName + "_hock_ikHandle", solver="ikSCsolver", startJoint=jointHierchy[2] + "_ik", 
+                        endEffector=jointHierchy[3] + "_ik")   
+    
+    cmds.group(limbName + "_knee_ikHandle", name=limbName + "_knee_control")
+    cmds.group(limbName + "_knee_control", name=limbName + "_knee_control_offset")
+
+    # Find the ankle pivot
+    anklePivot = cmds.xform(jointHierchy[3], query=True, worldSpace=True, pivots=True)
+
+    # set the group pivot to match the ankle position
+    cmds.xform(((limbName + "_knee_control"), (limbName + "_knee_control_offset")), worldSpace=True, pivots=(anklePivot[0], anklePivot[1], anklePivot[2]))
+
+    # Parent the ik handle and group to the paw control
+    cmds.parent(limbName + "_knee_control_offset", limbName + "_hock_ikHandle", pawControlName)
+
+    # If its the rear leg, adjust the hierachy to the driver leg control the ik handle
+    if isRearLeg:
+        cmds.parent(limbName + "_knee_control_offset", jointHierchy[2] + "_driver")
+        cmds.parent(limbName + "_hock_ikHandle", jointHierchy[3] + "_driver")
+
+        cmds.parent(limbName + "_driver_ikHandle", pawControlName)
+
+    # Make the paw control driver the ankle joint to maintain orientation
+    cmds.orientConstraint(pawControlName, jointHierchy[3] + "_ik", weight=True)
+
+
+
+
+
+
+    # ALL CREATED AND DONE
+    print("PERFECT >MARTIN< : ALL DONE")
+    
+    
      
     
     
