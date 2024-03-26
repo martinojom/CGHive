@@ -90,21 +90,26 @@ def autoLimbTool():
             
             cmds.joint(name=newJointName)
             cmds.matchTransform(newJointName, jointHierchy[i])
-            cmds.makeIdentity(newJointName, apply=True, translate=True, rotate=True, scale=True)
+            cmds.makeIdentity(newJointName, apply=True, translate=False, rotate=True, scale=False)
         
         cmds.select(clear=True)
         
     #-----------------------------------------------------------------------
     # Constraint the main joints to the ik fk joint so that we can blend between them
     for i in range(limbJoints):
-        cmds.parentConstraint((jointHierchy[i] + "_FK_ctrl"), (jointHierchy[i] + "_fk"), jointHierchy[i],
+        cmds.parentConstraint((jointHierchy[i] + "_ik"), (jointHierchy[i] + "_fk"), jointHierchy[i],
                                 maintainOffset=True, weight=True)
     
-    #-----------------------------------------------------------------------
-    # setup FK
+    #----------------------------------------------------------------------------------------------------------------
+    # SETUP FK
     
-    #connect the  main 
+    #connect the FK controls to the joints
+    for i in range(limbJoints):
+        cmds.parentConstraint(jointHierchy[i] + "_FK_ctrl", jointHierchy[i] + "_fk", weight=True, maintainOffset=True)
     
+    #----------------------------------------------------------------------------------------------------------------
+    # SETUP IK
+
     # If its the rear leg, create the ik handle from  the femus to the metacarpus
     if isRearLeg:
         cmds.ikHandle(name=limbName + "_driver_ikHandle", solver="ikRPsolver", startJoint=jointHierchy[0] + "_driver", 
@@ -118,6 +123,7 @@ def autoLimbTool():
     cmds.ikHandle(name=limbName + "_hock_ikHandle", solver="ikSCsolver", startJoint=jointHierchy[2] + "_ik", 
                         endEffector=jointHierchy[3] + "_ik")   
     
+    # Create the knee control offset group
     cmds.group(limbName + "_knee_ikHandle", name=limbName + "_knee_control")
     cmds.group(limbName + "_knee_control", name=limbName + "_knee_control_offset")
 
@@ -128,7 +134,7 @@ def autoLimbTool():
     cmds.xform(((limbName + "_knee_control"), (limbName + "_knee_control_offset")), worldSpace=True, pivots=(anklePivot[0], anklePivot[1], anklePivot[2]))
 
     # Parent the ik handle and group to the paw control
-    cmds.parent(limbName + "_knee_control_offset", limbName + "_hock_ikHandle", pawControlName)
+    cmds.parent(limbName + "_knee_control_offset", limbName + "_hock_ikHandle", pawControlName) 
 
     # If its the rear leg, adjust the hierachy to the driver leg control the ik handle
     if isRearLeg:
@@ -138,7 +144,7 @@ def autoLimbTool():
         cmds.parent(limbName + "_driver_ikHandle", pawControlName)
 
     # Make the paw control driver the ankle joint to maintain orientation
-    cmds.orientConstraint(pawControlName, jointHierchy[3] + "_ik", weight=True)
+    cmds.orientConstraint(pawControlName, jointHierchy[3] + "_ik", weight=True) 
 
     # Add the pole vector to the driver IK handle if ist the rear leg, if its the front add it to the  knee ik handle
     if isRearLeg:
@@ -146,8 +152,14 @@ def autoLimbTool():
     else:
         cmds.poleVectorConstraint(kneeControlName, (limbName + "_knee_ikHandle"), weight=True)
 
-    #---------------------------------------------------------------------------------
+    # #---------------------------------------------------------------------------------
     # Add hock control
+
+    # Check if its the front or rear leg
+    if isRearLeg:
+        muitiValue = 2.5
+    else:
+        muitiValue = 5
 
     cmds.shadingNode('multiplyDivide', asUtility=True, name=limbName + "_hock_multi")
 
@@ -156,10 +168,10 @@ def autoLimbTool():
     cmds.connectAttr(limbName + "_hock_multi.outputZ", limbName + "_knee_control.rotateX", force=True)
     cmds.connectAttr(limbName + "_hock_multi.outputX", limbName + "_knee_control.rotateZ", force=True)
 
-    cmds.setAttr(limbName + "_hock_multi.input2X", -2.5)
-    cmds.setAttr(limbName + "_hock_multi.input2Z", 2.5)
+    cmds.setAttr(limbName + "_hock_multi.input2X", muitiValue*-1)
+    cmds.setAttr(limbName + "_hock_multi.input2Z", muitiValue)
 
-    #---------------------------------------------------------------------------------
+    # #---------------------------------------------------------------------------------
     # Add the IK and FK blending
 
     for i in range(limbJoints):
@@ -168,20 +180,35 @@ def autoLimbTool():
 
         cmds.connectAttr(mainControl + ".FK_IK_Switch", getConstrait + "." + getWeights[0], force=True)
         cmds.connectAttr(limbName + "_fkik_reverse.outputX", getConstrait + "." + getWeights[1], force=True)
-        # connectAttr -f l_leg_rear_ctrl.FK_IK_Switch l_leg_rear_IK_ctrl.FK_IK_Switch;
-        print(getWeights)
 
     #---------------------------------------------------------------------------------
     # Update the hierachy
 
     # Add a group for the limb
-    cmds.group(em=1, name=limbName + "_grp")
+    cmds.group(empty=1, name=limbName + "_grp")
 
     # Move if to the root position and freeze the transforms
     cmds.matchTransform(limbName + "_grp", jointRoot)
     cmds.makeIdentity(limbName + "_grp", apply=True, translate=True, rotate=True, scale=False)
      
 
+    # Parent the joint to the new group
+    cmds.parent(jointRoot + "_ik", jointRoot + "_fk", jointRoot + "_stretch", limbName + "_grp")
+
+    if isRearLeg:
+        cmds.parent(jointRoot + "_driver", limbName + "_grp")
+
+    # Make the new group follow the root control
+    cmds.parentConstraint(rootControlName, limbName + "_grp", weight=True, maintainOffset=True)
+
+    # Move the group to the rig system folder
+    cmds.parent(limbName + "_grp", "rig_systems")
+
+    # -----> this sphere is just for testing to notice the undo times<--------
+    cmds.polySphere(radius =5)
+
+    # Clear the selection
+    cmds.select(clear=True)
 
 
 
@@ -189,7 +216,7 @@ def autoLimbTool():
 
 
     # ALL CREATED AND DONE
-    print("PERFECT >MARTIN< : ALL DONE")
+    print("PERFECT >MARTIN< : ALL DONE") 
     
     
      
