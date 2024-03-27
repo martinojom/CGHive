@@ -18,7 +18,7 @@ def autoLimbTool():
     # setup the variable which could come from the UI
     
     # Is this the front or rear leg?
-    isRearLeg = 1
+    isRearLeg = 0
     
     # How many Joint are we working with?
     limbJoints = 4
@@ -204,16 +204,95 @@ def autoLimbTool():
     # Move the group to the rig system folder
     cmds.parent(limbName + "_grp", "rig_systems")
 
-    # -----> this sphere is just for testing to notice the undo times<--------
-    cmds.polySphere(radius =5)
-
     # Clear the selection
     cmds.select(clear=True)
 
+    #---------------------------------------------------------------------------------
+    # Make Stretchy
+
+    # create the locator which dictates the end position
+    cmds.spaceLocator(name=limbName + "_stretchEndPos_loc")
+
+    # Move it to the end joint
+    cmds.matchTransform(limbName + "_stretchEndPos_loc", jointHierchy[3])
+    cmds.parent(limbName + "_stretchEndPos_loc", pawControlName)
+
+    # start to build the distance nodes
+    # First, we will need to to add all the distance nodes together, so we need a plusMinusAverage nod
+    cmds.shadingNode("plusMinusAverage", asUtility=True, name=limbName + "_length")
+
+    # Build the distance node for each section
+    for i in range(limbJoints):
+
+        #ignore the last joint or it will try to use the toes
+        if i is not limbJoints -1:
+            cmds.shadingNode("distanceBetween", asUtility=True, name=jointHierchy[i] + "_distnode")
+
+            cmds.connectAttr(jointHierchy[i] + "_stretch.worldMatrix", jointHierchy[i] + "_distnode.inMatrix1", force=True)
+            cmds.connectAttr(jointHierchy[i+1] + "_stretch.worldMatrix", jointHierchy[i] + "_distnode.inMatrix2", force=True)
+
+            cmds.connectAttr(jointHierchy[i+1] + "_stretch.rotatePivotTranslate", jointHierchy[i] + "_distnode.point1", force=True)
+            cmds.connectAttr(jointHierchy[i+1] + "_stretch.rotatePivotTranslate", jointHierchy[i] + "_distnode.point2", force=True)
+
+            cmds.connectAttr(jointHierchy[i] + "_distnode.distance", limbName + "_length.input1D[" + str(i) + "]", force=True)
+
+    # Now get the distance from the root to the stretch end locator - we  use this to check the leg is stretching
+    cmds.shadingNode("distanceBetween", asUtility=True, name=limbName + "_stretch_distnode") 
+
+    cmds.connectAttr(jointHierchy[0] + "_stretch.worldMatrix", limbName + "_stretch_distnode.inMatrix1", force=True)
+    cmds.connectAttr(limbName + "_stretchEndPos_loc.worldMatrix", limbName + "_stretch_distnode.inMatrix2", force=True)
+
+    cmds.connectAttr(jointHierchy[0] + "_stretch.rotatePivotTranslate", limbName + "_stretch_distnode.point1", force=True)
+    cmds.connectAttr(limbName + "_stretchEndPos_loc.rotatePivotTranslate", limbName + "_stretch_distnode.point2", force=True)
+
+    # Create nodes to check for stretching, and to control how the stretch works
+    
+    # Scale factor compare the length of the leg with the stretch locator, so we can see when the actuslly stretching
+    cmds.shadingNode("multiplyDivide", asUtility=True, name=limbName + "_scaleFactor")
+    
+    # We use the condition node to pass this onto the joints, so the leg only stretches the way we want it to
+    cmds.shadingNode("condition", asUtility=True, name=limbName + "_condition")
+
+    # Ajust the node settings
+    cmds.setAttr(limbName + "_scaleFactor.operation", 2)
+
+    cmds.setAttr(limbName + "_condition.operation", 2)
+    cmds.setAttr(limbName + "_condition.secondTerm", 1)
+
+    # Connect the stretch to the scale the facto multiply divide node
+    cmds.connectAttr(limbName + "_stretch_distnode.distance", limbName + "_scaleFactor.input1X", force=True)
+
+    # Connect the full leg distance to the scale factor multiply divide node
+    cmds.connectAttr(limbName + "_length.output1D", limbName + "_scaleFactor.input2X", force=True)
+
+    # Next, Connect the stretch Factor node to the first term in the condition node 
+    cmds.connectAttr(limbName + "_scaleFactor.outputX", limbName + "_condition.firstTerm", force=True)
+    
+    # Also connect the coloe if true attribute, so we can use this as the stretch value  
+    cmds.connectAttr(limbName + "_scaleFactor.outputX", limbName + "_condition.colorIfTrueR", force=True)
+
+    # Also connect the coloe if true attribute, so we can use this as the stretch value  
+    for i in range(limbJoints):
+        cmds.connectAttr(limbName + "_condition.outColorR", jointHierchy[i] + "_ik.scaleX", force=True)
+
+        # Also effect the driver skeleton, if this is the rear leg
+        if isRearLeg:
+            cmds.connectAttr(jointHierchy[i] + "_ik.scaleX", jointHierchy[i] + "_driver.scaleX", force=True)
 
 
 
 
+        
+
+
+
+
+
+
+
+
+    # -----> this sphere is just for testing to notice the undo times<--------
+    cmds.polySphere(radius =5)
 
     # ALL CREATED AND DONE
     print("PERFECT >MARTIN< : ALL DONE") 
