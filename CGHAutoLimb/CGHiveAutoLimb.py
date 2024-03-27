@@ -46,7 +46,7 @@ def autoLimbTool():
     
     # Make sure the prefix is usable
     if not 'l_' in whichSide:
-        if not 'r_' in whichSide:
+        if not 'r_' in whichSide:    
             cmds.error('Please use joints with a usable prifix either l_ or r_')
     
     # Now build the names we need
@@ -278,6 +278,25 @@ def autoLimbTool():
         # Also effect the driver skeleton, if this is the rear leg
         if isRearLeg:
             cmds.connectAttr(jointHierchy[i] + "_ik.scaleX", jointHierchy[i] + "_driver.scaleX", force=True)
+
+    # Add the ability to turn the stretching off 
+    cmds.shadingNode("blendColors", asUtility=True, name=limbName + "_blendColors")
+    cmds.setAttr(limbName + "_blendColors.color2", 1,0,0, type="double3")
+
+    cmds.connectAttr(limbName + "_scaleFactor.outputX", limbName + "_blendColors.color1R", force=True)
+    cmds.connectAttr(limbName + "_blendColors.outputR", limbName + "_condition.colorIfTrueR", force=True)
+
+    # Connect to the par control attribute
+    cmds.connectAttr(pawControlName + ".Stretchiness", limbName + "_blendColors.blender", force=True)
+
+    # Wire up the attribute so we can cotrol how the stretch works
+    cmds.setAttr(pawControlName + "StretchType", 0)
+    cmds.setAttr(limbName + "_condition.operation", 1) # Not Equal
+
+    cmds.setDrivenKeyframe(limbName + "_condition.operation", currentDriver=pawControlName + "StretchType")
+
+    cmds.setAttr(pawControlName + "StretchType", 2)
+    cmds.
 
 
 
