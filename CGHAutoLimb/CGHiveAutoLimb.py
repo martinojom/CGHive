@@ -18,7 +18,7 @@ def autoLimbTool():
     # setup the variable which could come from the UI
     
     # Is this the front or rear leg?
-    isRearLeg = 0
+    isRearLeg = 1
     
     # How many Joint are we working with?
     limbJoints = 4
@@ -209,6 +209,7 @@ def autoLimbTool():
 
     #---------------------------------------------------------------------------------
     # Make Stretchy
+    #---------------------------------------------------------------------------------
 
     # create the locator which dictates the end position
     cmds.spaceLocator(name=limbName + "_stretchEndPos_loc")
@@ -290,15 +291,46 @@ def autoLimbTool():
     cmds.connectAttr(pawControlName + ".Stretchiness", limbName + "_blendColors.blender", force=True)
 
     # Wire up the attribute so we can cotrol how the stretch works
-    cmds.setAttr(pawControlName + "StretchType", 0)
-    cmds.setAttr(limbName + "_condition.operation", 1) # Not Equal
+    cmds.setAttr(pawControlName + ".StretchType", 0)
+    cmds.setAttr(limbName + "_condition.operation", 1) # Not Equals
 
-    cmds.setDrivenKeyframe(limbName + "_condition.operation", currentDriver=pawControlName + "StretchType")
+    cmds.setDrivenKeyframe(limbName + "_condition.operation", currentDriver=pawControlName + ".StretchType")
 
-    cmds.setAttr(pawControlName + "StretchType", 2)
-    cmds.
+    cmds.setAttr(pawControlName + ".StretchType", 1)
+    cmds.setAttr(limbName + "_condition.operation", 3) # Greater Than
 
+    cmds.setDrivenKeyframe(limbName + "_condition.operation", currentDriver=pawControlName + ".StretchType")
+    
+    cmds.setAttr(pawControlName + ".StretchType", 2)
+    cmds.setAttr(limbName + "_condition.operation", 5) # Less or Equal
 
+    cmds.setDrivenKeyframe(limbName + "_condition.operation", currentDriver=pawControlName + ".StretchType")
+
+    cmds.setAttr(pawControlName + ".StretchType", 1)
+
+    # Clear the selection
+    cmds.select(clear=True)
+
+    #---------------------------------------------------------------------------------
+    # Add Roll Joints & Systems
+    #---------------------------------------------------------------------------------
+
+    # Create the main roll and follow joints
+    rollJointList = [jointHierchy[0], jointHierchy[3], jointHierchy[0], jointHierchy[0]]
+
+    for i in range(len(rollJointList)):
+
+        # set the joint names
+        if i > 2:
+            rollJointName = rollJointList[i] + "_follow_tip"
+        elif i > 1:
+            rollJointName = rollJointList[i] + "_follow"
+        else:
+            rollJointName = rollJointList[i] + "_roll"
+        
+        cmds.joint(name=rollJointName, radius=2)
+        cmds.matchTransform(rollJointName, rollJointList[i])
+        cmds.makeIdentity(rollJointName, apply=True, translate=False, rotate=True, scale=False)
 
 
         
