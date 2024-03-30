@@ -134,7 +134,7 @@ def autoLimbTool():
     cmds.xform(((limbName + "_knee_control"), (limbName + "_knee_control_offset")), worldSpace=True, pivots=(anklePivot[0], anklePivot[1], anklePivot[2]))
 
     # Parent the ik handle and group to the paw control
-    cmds.parent(limbName + "_knee_control_offset", limbName + "_hock_ikHandle", pawControlName) 
+    cmds.parent(limbName + "_hock_ikHandle", pawControlName) 
 
     # If its the rear leg, adjust the hierachy to the driver leg control the ik handle
     if isRearLeg:
@@ -142,7 +142,11 @@ def autoLimbTool():
         cmds.parent(limbName + "_hock_ikHandle", jointHierchy[3] + "_driver")
 
         cmds.parent(limbName + "_driver_ikHandle", pawControlName)
+    else:
+        cmds.parent(limbName + "_knee_control_offset", "root_ctrl")
+        cmds.pointConstraint(pawControlName, limbName + "_knee_control_offset", weight=True)
 
+    #------------------------------------------------------------------------------------
     # Make the paw control driver the ankle joint to maintain orientation
     cmds.orientConstraint(pawControlName, jointHierchy[3] + "_ik", weight=True) 
 
@@ -315,6 +319,12 @@ def autoLimbTool():
     # Add Roll Joints & Systems
     #---------------------------------------------------------------------------------
 
+    # Check if we are working on the right side and if so we can move to the correct side
+    if whichSide == "l_":
+        flipSide = 1
+    else: 
+        flipSide = -1
+
     # Create the main roll and follow joints
     rollJointList = [jointHierchy[0], jointHierchy[3], jointHierchy[0], jointHierchy[0]]
 
@@ -328,16 +338,91 @@ def autoLimbTool():
         else:
             rollJointName = rollJointList[i] + "_roll"
         
-        cmds.joint(name=rollJointName, radius=2)
+        cmds.joint(name=rollJointName, radius=1)
         cmds.matchTransform(rollJointName, rollJointList[i])
         cmds.makeIdentity(rollJointName, apply=True, translate=False, rotate=True, scale=False)
 
 
-        
+        if i < 2:
+            cmds.parent(rollJointName, rollJointList[i])
+        elif i > 2: 
+            cmds.parent(rollJointName, rollJointList[2] + "_follow")
+
+        cmds.select(clear=True)
+
+        # show the local rotation axes to help visualie the rotaion
+        # cmds.toggle(rollJointName, localAxis=True)
+
+    # let work on the femur first and adjust the following joints.
+    cmds.pointConstraint(jointHierchy[0], jointHierchy[1], rollJointList[2] + "_follow_tip", 
+                         weight=True, maintainOffset=False, name="TemperaryPointConstraint")
+    cmds.delete("TemperaryPointConstraint")
+
+    # Now move them out
+    cmds.move(0,0,-5*flipSide, rollJointList[2] + "_follow", relative=True, objectSpace=True, 
+              worldSpaceDistance=True)
+
+    # Create the aim locator whick the femur roll joint will always follow
+    cmds.spaceLocator(name=rollJointList[0] + "_roll_aim")
+
+    # Move it to the root joint and parent it to the following joint so it moves with it
+    cmds.matchTransform(rollJointList[0] + "_roll_aim", rollJointList[2] + "_follow")
+    cmds.parent(rollJointList[0] + "_roll_aim", rollJointList[2] + "_follow")
+
+    # Move the locator out too
+    cmds.move(0,0,-5*flipSide, rollJointList[0] + "_roll_aim", relative=True, objectSpace=True, 
+              worldSpaceDistance=True)
+    
+    # Make the roll joint aim at the fibula joint, but also keep lookin at the aim locator for reference
+    cmds.aimConstraint(rollJointList[1], rollJointList[0] + "_roll", weight=True, aimVector=(1,0,0), 
+                       upVector=(0,0,1), worldUpType="object", worldUpObject=rollJointList[0] + "_roll_aim", 
+                       maintainOffset=True)
+    
+    # Add an ik handle so the follow joints, follow the leg
+    cmds.ikHandle(name=limbName + "_follow_ikHandle", solver="ikRPsolver", startJoint=rollJointList[2] + "_follow", 
+                        endEffector=rollJointList[2] + "_follow_tip")  
+    
+    # Now move it to the fibula and parent it too
+    cmds.parent(limbName + "_follow_ikHandle", rollJointList[1])
+    cmds.matchTransform(limbName + "_follow_ikHandle", rollJointList[1])
+
+    # Also reset the pole vector to stop the limb twisting
+    cmds.setAttr(limbName + "_follow_ikHandle.poleVectorX", 0)
+    cmds.setAttr(limbName + "_follow_ikHandle.poleVectorY", 0)
+    cmds.setAttr(limbName + "_follow_ikHandle.poleVectorZ", 0)
+
+    #-----------------------------------------------------------------------------------------------------------
+    # Lower leg systems
+
+    # Create the aim locator thick the femur roll joint will always follow
+    cmds.spaceLocator(name=rollJointList[1] + "_roll_aim")
+
+    # Move it the ankle joint and parent to the ankle joint too
+    cmds.matchTransform(rollJointList[1] + "_roll_aim", rollJointList[1] + "_roll")
+    cmds.parent(rollJointList[1] + "_roll_aim", jointHierchy[3])
+
+    # Also move it out to the side
+    cmds.move(5*flipSide, 0, 0, rollJointList[1] + "_roll_aim", relative=True, objectSpace=True, worldSpaceDistance=True)
+
+    # Make the ankle joint aim at the febula joint, but also keep looking at the locotor for refference
+    cmds.aimConstraint(rollJointList[2], rollJointList[1] + "_roll", weight=True, aimVector=(0,1,0), 
+                       upVector=(1,0,0), worldUpType="object", worldUpObject=rollJointList[1] + "_roll_aim", 
+                       maintainOffset=True)
+    
+    # Update the hierachy, parenting the following joints to the main group
+    cmds.parent(rollJointList[0] + "_follow", limbName + "_grp")
+ 
+    cmds.select(clear=True)
 
 
 
 
+
+
+
+
+
+    
 
 
 
