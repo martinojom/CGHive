@@ -18,7 +18,7 @@ def autoLimbTool():
     # setup the variable which could come from the UI
     
     # Is this the front or rear leg?
-    isRearLeg = 1
+    isRearLeg = 0
     
     # How many Joint are we working with?
     limbJoints = 4
@@ -316,6 +316,33 @@ def autoLimbTool():
     cmds.select(clear=True)
 
     #---------------------------------------------------------------------------------
+    # Volume Preservation 
+    #---------------------------------------------------------------------------------
+
+    #Create the main multiply divide node whick will calculate the volume
+    cmds.shadingNode("multiplyDivide", asUtility=True, name=limbName + "_volume")
+
+    # set the operation to power:
+    cmds.setAttr(limbName + "_volume.operation", 3)
+
+    # connect the main stretch value to the valume node:
+    cmds.connectAttr(limbName + "_blendColors.outputR", limbName + "_volume.input1X", force=True)
+
+    # connect the condition node so we can control scaling:
+    cmds.connectAttr(limbName + "_volume.outputX", limbName + "_condition.colorIfTrueG", force=True)
+
+    # Connect to the fibula joint:
+    cmds.connectAttr(limbName + "_condition.outColorG", jointHierchy[1] + ".scaleY", force=True)
+    cmds.connectAttr(limbName + "_condition.outColorG", jointHierchy[1] + ".scaleZ", force=True)
+
+    # Connect to the metatarsus joint:
+    cmds.connectAttr(limbName + "_condition.outColorG", jointHierchy[2] + ".scaleY", force=True)
+    cmds.connectAttr(limbName + "_condition.outColorG", jointHierchy[2] + ".scaleZ", force=True)
+
+    # Connect the volume attribute:
+    cmds.connectAttr(mainControl + ".Volume_Offset", limbName + "_volume.input2X", force=True)
+
+    #---------------------------------------------------------------------------------
     # Add Roll Joints & Systems
     #---------------------------------------------------------------------------------
 
@@ -417,23 +444,33 @@ def autoLimbTool():
 
 
 
-
-
-
-
-
-    
-
-
-
-
     # -----> this sphere is just for testing to notice the undo times<--------
     cmds.polySphere(radius =5)
 
-    # ALL CREATED AND DONE
+    # ALL CREATED AND DONE:
     print("PERFECT >MARTIN< : ALL DONE") 
     
     
+def autoLimbToolUI():
+    # check if the window exists if it does deleteUI:
+    if cmds.window("autoLimToolUI", exists=True): cmds.deleteUI("autoLimToolUI")
+
+    # Create a window:
+    window = cmds.window("autoLimToolUI", title="CGHive autoLimTool", width=200, height=200, maximizeButton=False, 
+                         minimizeButton=False)
+    
+    # Create the main layout:
+    mainLayout = cmds.formLayout(numberOfDivisions=100, parent=window)
+
+    # Leg menu:
+    legMenu = cmds.optionMenu("legMenu", label="Wich Leg?", height=20, annotation="which side are working on?", 
+                              parent=mainLayout)
+    
+    # Show the window
+    cmds.showWindow(window)
+
+
+
      
     
     
